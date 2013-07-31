@@ -22,6 +22,8 @@ import threading
 import time
 import traceback
 
+from fnmatch import fnmatchcase
+
 from paste.deploy import loadserver
 from paste.deploy import loadapp
 
@@ -126,6 +128,14 @@ class PServeCommand(object):
         dest='show_status',
         help="Show the status of the (presumably daemonized) server")
 
+    parser.add_option(
+        '--monitor-extras',
+        dest='monitor_extras',
+        default=None,
+        help=("Monitor extra files matching quoted pattern seperated by a "
+              "comma e.g. '*.txt, *doc, somefile'"))
+        
+
     if hasattr(os, 'setuid'):
         # I don't think these are available on Windows
         parser.add_option(
@@ -196,12 +206,32 @@ class PServeCommand(object):
             cmd = None
 
         if self.options.reload:
+            monitor = [app_spec]
             if os.environ.get(self._reloader_environ_key):
                 if self.verbose > 1:
                     self.out('Running reloading file monitor')
-                install_reloader(int(self.options.reload_interval), [app_spec])
+
+                if self.options.monitor_extras:
+                    self.out('Monitoring extra files with filters '+
+                            self.options.monitor_extras)
+                    patterns = self.options.monitor_extras.replace(' ','').\
+                            split(',')
+                    try:
+                        for i in ('*py', '*.py'):
+                            patterns.remove(i)
+                    except:
+                        pass
+
+                    for fpath, dname, fnames in os.walk(os.path.curdir):
+                        for f in fnames:
+                            for p in patterns:
+                                if fnmatchcase(f, p):
+                                    monitor.append(os.path.join(fpath, f))
+
+                install_reloader(int(self.options.reload_interval), monitor)
                 # if self.requires_config_file:
                 #     watch_file(self.args[0])
+
             else:
                 return self.restart_with_reloader()
 
