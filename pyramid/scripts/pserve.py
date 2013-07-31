@@ -21,6 +21,7 @@ import textwrap
 import threading
 import time
 import traceback
+import shlex
 
 from fnmatch import fnmatchcase
 
@@ -129,12 +130,11 @@ class PServeCommand(object):
         help="Show the status of the (presumably daemonized) server")
 
     parser.add_option(
-        '--monitor-extras',
-        dest='monitor_extras',
+        '--monitor-extra',
+        dest='monitor_extra',
         default=None,
-        help=("Monitor extra files matching quoted pattern seperated by a "
-              "comma e.g. '*.txt, *doc, somefile'"))
-        
+        help=('Monitor extra files matching quoted pattern seperated by '
+              'spaces e.g. "a.* .b c.txt foo bar\ baz"'))
 
     if hasattr(os, 'setuid'):
         # I don't think these are available on Windows
@@ -211,22 +211,23 @@ class PServeCommand(object):
                 if self.verbose > 1:
                     self.out('Running reloading file monitor')
 
-                if self.options.monitor_extras:
-                    self.out('Monitoring extra files with filters '+
-                            self.options.monitor_extras)
-                    patterns = self.options.monitor_extras.replace(' ','').\
-                            split(',')
-                    try:
-                        for i in ('*py', '*.py'):
-                            patterns.remove(i)
-                    except:
-                        pass
+                if self.options.monitor_extra:
+                    patterns = shlex.split(self.options.monitor_extra)
+                    
+                    #Already monitored by default
+                    if '*.py' in patterns:
+                        patterns.remove('*.py')
 
                     for fpath, dname, fnames in os.walk(os.path.curdir):
                         for f in fnames:
                             for p in patterns:
                                 if fnmatchcase(f, p):
                                     monitor.append(os.path.join(fpath, f))
+
+                    if self.verbose > 1:
+                        self.out('Monitoring extra files:')
+                        for f in monitor:
+                            self.out(' '*4+f)
 
                 install_reloader(int(self.options.reload_interval), monitor)
                 # if self.requires_config_file:
