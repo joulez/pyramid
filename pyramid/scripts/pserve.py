@@ -134,7 +134,7 @@ class PServeCommand(object):
         dest='monitor_extra',
         default=None,
         help=('Monitor extra files matching quoted pattern seperated by '
-              'spaces e.g. "a.* .b c.txt foo bar\ baz"'))
+              'spaces e.g. "a.* *.b c.txt foo bar\ baz"'))
 
     if hasattr(os, 'setuid'):
         # I don't think these are available on Windows
