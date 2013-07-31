@@ -128,7 +128,6 @@ class PServeCommand(object):
         action='store_true',
         dest='show_status',
         help="Show the status of the (presumably daemonized) server")
-
     parser.add_option(
         '--monitor-extra',
         dest='monitor_extra',
@@ -182,6 +181,32 @@ class PServeCommand(object):
 
         return parse_vars(restvars)
 
+    def setup_reloader(self, monitor):
+        if self.verbose > 1:
+            self.out('Running reloading file monitor')
+    
+        if self.options.monitor_extra:
+            patterns = shlex.split(self.options.monitor_extra)
+            
+            #Already monitored by default
+            if '*.py' in patterns:
+                patterns.remove('*.py')
+    
+            for fpath, dname, fnames in os.walk(os.path.curdir):
+                for f in fnames:
+                    for p in patterns:
+                        if fnmatchcase(f, p):
+                            monitor.append(os.path.join(fpath, f))
+    
+            if self.verbose > 1:
+                self.out('Monitoring extra files:')
+                for f in monitor:
+                    self.out(' '*4+f)
+    
+        install_reloader(int(self.options.reload_interval), monitor)
+        # if self.requires_config_file:
+        #     watch_file(self.args[0])
+
     def run(self): # pragma: no cover
         if self.options.stop_daemon:
             return self.stop_daemon()
@@ -206,33 +231,8 @@ class PServeCommand(object):
             cmd = None
 
         if self.options.reload:
-            monitor = [app_spec]
             if os.environ.get(self._reloader_environ_key):
-                if self.verbose > 1:
-                    self.out('Running reloading file monitor')
-
-                if self.options.monitor_extra:
-                    patterns = shlex.split(self.options.monitor_extra)
-                    
-                    #Already monitored by default
-                    if '*.py' in patterns:
-                        patterns.remove('*.py')
-
-                    for fpath, dname, fnames in os.walk(os.path.curdir):
-                        for f in fnames:
-                            for p in patterns:
-                                if fnmatchcase(f, p):
-                                    monitor.append(os.path.join(fpath, f))
-
-                    if self.verbose > 1:
-                        self.out('Monitoring extra files:')
-                        for f in monitor:
-                            self.out(' '*4+f)
-
-                install_reloader(int(self.options.reload_interval), monitor)
-                # if self.requires_config_file:
-                #     watch_file(self.args[0])
-
+                self.setup_reloader([app_spec])
             else:
                 return self.restart_with_reloader()
 
