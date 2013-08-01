@@ -192,7 +192,8 @@ class PServeCommand(object):
             if '*.py' in patterns:
                 patterns.remove('*.py')
     
-            for fpath, dname, fnames in os.walk(os.path.curdir):
+            for fpath, dname, fnames in os.walk(os.path.abspath(
+                os.path.dirname(monitor[0]))): #app_spec
                 for f in fnames:
                     for p in patterns:
                         if fnmatchcase(f, p):
