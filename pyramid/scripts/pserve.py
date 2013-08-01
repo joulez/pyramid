@@ -201,7 +201,7 @@ class PServeCommand(object):
     
             if self.verbose > 1:
                 self.out('Monitoring extra files:')
-                for f in monitor:
+                for f in monitor[1:]:
                     self.out(' '*4+f)
     
         install_reloader(int(self.options.reload_interval), monitor)
