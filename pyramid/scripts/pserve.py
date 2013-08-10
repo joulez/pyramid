@@ -193,7 +193,7 @@ class PServeCommand(object):
         return parse_vars(restvars)
 
     def setup_reloader(self, monitor):
-        if self.verbose > 1:
+        if self.options.verbose > 1:
             self.out('Running reloading file monitor')
     
         if self.options.monitor_extra:
@@ -210,14 +210,12 @@ class PServeCommand(object):
                         if fnmatchcase(f, p):
                             monitor.append(os.path.join(fpath, f))
     
-            if self.verbose > 1:
+            if self.options.verbose > 1:
                 self.out('Monitoring extra files:')
                 for f in monitor[1:]:
                     self.out(' '*4+f)
     
         install_reloader(int(self.options.reload_interval), monitor)
-        # if self.requires_config_file:
-        #     watch_file(self.args[0])
 
     def run(self): # pragma: no cover
         if self.options.stop_daemon:
@@ -245,11 +243,6 @@ class PServeCommand(object):
         if self.options.reload:
             if os.environ.get(self._reloader_environ_key):
                 self.setup_reloader([app_spec])
-                if self.options.verbose > 1:
-                    self.out('Running reloading file monitor')
-                install_reloader(int(self.options.reload_interval), [app_spec])
-                # if self.requires_config_file:
-                #     watch_file(self.args[0])
             else:
                 return self.restart_with_reloader()
 
