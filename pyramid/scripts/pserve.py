@@ -68,7 +68,7 @@ class PServeCommand(object):
     You can also include variable assignments like 'http_port=8080'
     and then use %(http_port)s in your config files.
     """
-    verbose = 1
+    default_verbosity = 1
 
     parser = optparse.OptionParser(
         usage,
@@ -134,6 +134,18 @@ class PServeCommand(object):
         default=None,
         help=('Monitor extra files matching quoted pattern seperated by '
               'spaces e.g. "a.* *.b c.txt foo bar\ baz"'))
+    parser.add_option(
+        '-v', '--verbose',
+        default=default_verbosity,
+        dest='verbose',
+        action='count',
+        help="Set verbose level (default "+str(default_verbosity)+")")
+    parser.add_option(
+        '-q', '--quiet',
+        action='store_const',
+        const=0,
+        dest='verbose',
+        help="Suppress verbose output")
 
     if hasattr(os, 'setuid'):
         # I don't think these are available on Windows
@@ -157,19 +169,18 @@ class PServeCommand(object):
 
     _scheme_re = re.compile(r'^[a-z][a-z]+:', re.I)
 
-    default_verbosity = 1
-
     _reloader_environ_key = 'PYTHON_RELOADER_SHOULD_RUN'
     _monitor_environ_key = 'PASTE_MONITOR_SHOULD_RUN'
 
     possible_subcommands = ('start', 'stop', 'restart', 'status')
 
     def __init__(self, argv, quiet=False):
-        self.quiet = quiet
         self.options, self.args = self.parser.parse_args(argv[1:])
+        if quiet:
+            self.options.verbose = 0
 
     def out(self, msg): # pragma: no cover
-        if not self.quiet:
+        if self.options.verbose > 0:
             print(msg)
 
     def get_options(self):
@@ -234,6 +245,11 @@ class PServeCommand(object):
         if self.options.reload:
             if os.environ.get(self._reloader_environ_key):
                 self.setup_reloader([app_spec])
+                if self.options.verbose > 1:
+                    self.out('Running reloading file monitor')
+                install_reloader(int(self.options.reload_interval), [app_spec])
+                # if self.requires_config_file:
+                #     watch_file(self.args[0])
             else:
                 return self.restart_with_reloader()
 
@@ -303,7 +319,7 @@ class PServeCommand(object):
             try:
                 self.daemonize()
             except DaemonizeException as ex:
-                if self.verbose > 0:
+                if self.options.verbose > 0:
                     self.out(str(ex))
                 return 2
 
@@ -335,7 +351,7 @@ class PServeCommand(object):
         app = self.loadapp(app_spec, name=app_name, relative_to=base,
                 global_conf=vars)
 
-        if self.verbose > 0:
+        if self.options.verbose > 0:
             if hasattr(os, 'getpid'):
                 msg = 'Starting server in PID %i.' % os.getpid()
             else:
@@ -346,7 +362,7 @@ class PServeCommand(object):
             try:
                 server(app)
             except (SystemExit, KeyboardInterrupt) as e:
-                if self.verbose > 1:
+                if self.options.verbose > 1:
                     raise
                 if str(e):
                     msg = ' ' + str(e)
@@ -390,7 +406,7 @@ class PServeCommand(object):
                 "Daemon is already running (PID: %s from PID file %s)"
                 % (pid, self.options.pid_file))
 
-        if self.verbose > 0:
+        if self.options.verbose > 0:
             self.out('Entering daemon mode')
         pid = os.fork()
         if pid:
@@ -465,11 +481,11 @@ class PServeCommand(object):
 
     def record_pid(self, pid_file):
         pid = os.getpid()
-        if self.verbose > 1:
+        if self.options.verbose > 1:
             self.out('Writing PID %s to %s' % (pid, pid_file))
         with open(pid_file, 'w') as f:
             f.write(str(pid))
-        atexit.register(self._remove_pid_file, pid, pid_file, self.verbose)
+        atexit.register(self._remove_pid_file, pid, pid_file, self.options.verbose)
 
     def stop_daemon(self): # pragma: no cover
         pid_file = self.options.pid_file or 'pyramid.pid'
@@ -522,7 +538,7 @@ class PServeCommand(object):
         self.restart_with_monitor(reloader=True)
 
     def restart_with_monitor(self, reloader=False): # pragma: no cover
-        if self.verbose > 0:
+        if self.options.verbose > 0:
             if reloader:
                 self.out('Starting subprocess with file monitor')
             else:
@@ -543,7 +559,7 @@ class PServeCommand(object):
                     proc = None
                 except KeyboardInterrupt:
                     self.out('^C caught in monitor process')
-                    if self.verbose > 1:
+                    if self.options.verbose > 1:
                         raise
                     return 1
             finally:
@@ -559,7 +575,7 @@ class PServeCommand(object):
                 # a monitor, any exit code will restart
                 if exit_code != 3:
                     return exit_code
-            if self.verbose > 0:
+            if self.options.verbose > 0:
                 self.out('%s %s %s' % ('-' * 20, 'Restarting', '-' * 20))
 
     def change_user_group(self, user, group): # pragma: no cover
@@ -591,7 +607,7 @@ class PServeCommand(object):
             if not gid:
                 gid = entry.pw_gid
             uid = entry.pw_uid
-        if self.verbose > 0:
+        if self.options.verbose > 0:
             self.out('Changing user to %s:%s (%s:%s)' % (
                 user, group or '(unknown)', uid, gid))
         if gid:
