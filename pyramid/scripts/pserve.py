@@ -216,11 +216,6 @@ class PServeCommand(object):
             else:
                 return self.restart_with_reloader()
 
-        if cmd not in (None, 'start', 'stop', 'restart', 'status'):
-            self.out(
-                'Error: must give start|stop|restart (not %s)' % cmd)
-            return 2
-
         if cmd == 'status' or self.options.show_status:
             return self.show_status()
 
