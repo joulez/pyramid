@@ -147,10 +147,10 @@ class JSONSerializer(object):
     Python objects to the JSON equivalent."""
     _compact = (',', ':')
     def loads(self, bstruct):
-        return json.loads(text_(bstruct))
+        return json.loads(text_(bstruct, encoding='utf-8'))
 
     def dumps(self, objstruct):
-        return bytes_(json.dumps(objstruct, separators=self._compact))
+        return bytes_(json.dumps(objstruct, separators=self._compact), encoding='utf-8')
 
 def BaseCookieSessionFactory(
     serializer,
